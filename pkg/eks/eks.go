@@ -397,6 +397,35 @@ func (c *ClusterProvider) GetCluster(clusterName string) (*awseks.Cluster, error
 	return output.Cluster, nil
 }
 
+// GetCluster display details of an EKS cluster in your account
+func (c *ClusterProvider) ListNodegroups(clusterName string) ([]awseks.DescribeNodegroupOutput, error) {
+	output, err := c.Provider.EKS().ListNodegroups(&awseks.ListNodegroupsInput{
+		ClusterName: &clusterName,
+	})
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to list nodegroups for cluster: %q", clusterName)
+	}
+	logger.Debug("cluster = %#v", output)
+
+	var nodes []awseks.DescribeNodegroupOutput
+	for _, node := range output.Nodegroups {
+		nodeInfo, err := c.Provider.EKS().DescribeNodegroup(&awseks.DescribeNodegroupInput{
+			ClusterName:   &clusterName,
+			NodegroupName: node,
+		})
+
+		if err != nil {
+			logger.Debug("failed to describe nodegroup %q for cluster %q", node, clusterName)
+			return nil, err
+		}
+
+		nodes = append(nodes, *nodeInfo)
+	}
+
+	return nodes, nil
+}
+
 func (c *ClusterProvider) getClustersRequest(chunkSize int64, nextToken string) ([]*string, *string, error) {
 	input := &awseks.ListClustersInput{MaxResults: &chunkSize}
 	if nextToken != "" {

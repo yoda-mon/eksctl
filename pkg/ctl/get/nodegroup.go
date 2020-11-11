@@ -1,6 +1,7 @@
 package get
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -12,6 +13,7 @@ import (
 	api "github.com/weaveworks/eksctl/pkg/apis/eksctl.io/v1alpha5"
 	"github.com/weaveworks/eksctl/pkg/cfn/manager"
 	"github.com/weaveworks/eksctl/pkg/ctl/cmdutils"
+	"github.com/weaveworks/eksctl/pkg/eks"
 	"github.com/weaveworks/eksctl/pkg/printers"
 )
 
@@ -69,6 +71,13 @@ func doGetNodeGroup(cmd *cmdutils.Cmd, ng *api.NodeGroup, params *getCmdParams) 
 	if err := ctl.CheckAuth(); err != nil {
 		return err
 	}
+
+	spec := &api.ProviderConfig{
+		Region: "us-west-2",
+	}
+	nodes, err := eks.New(spec, nil).ListNodegroups(cfg.Metadata.Name)
+	fmt.Printf("node: %v\nerror:%v\n", nodes, err)
+	//return nil
 
 	manager := ctl.NewStackManager(cfg)
 	summaries, err := manager.GetNodeGroupSummaries(ng.Name)

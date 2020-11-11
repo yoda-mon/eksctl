@@ -170,6 +170,67 @@ var _ = Describe("EKS API wrapper", func() {
 
 	})
 
+	Describe("ListNodegroups", func() {
+		var (
+			clusterName string
+			err         error
+			nodegroups  []awseks.DescribeNodegroupOutput
+		)
+		BeforeEach(func() {
+			logger.Level = 3
+
+			clusterName = "test-cluster"
+
+			p = mockprovider.NewMockProvider()
+
+			c = &ClusterProvider{
+				Provider: p,
+			}
+
+			p.MockEKS().On("ListNodegroups", mock.MatchedBy(func(input *awseks.ListNodegroupsInput) bool {
+				return *input.ClusterName == clusterName
+			})).Return(&awseks.ListNodegroupsOutput{
+				Nodegroups: aws.StringSlice([]string{"node-1", "node-2"}),
+			}, nil)
+
+			p.MockEKS().On("DescribeNodegroup", mock.MatchedBy(func(input *awseks.DescribeNodegroupInput) bool {
+				return *input.ClusterName == clusterName && (*input.NodegroupName == "node-1" || *input.NodegroupName == "node-2")
+			})).Return(&awseks.DescribeNodegroupOutput{
+				Nodegroup: &awseks.Nodegroup{
+					InstanceTypes: aws.StringSlice([]string{"t2.small"}),
+					Status:        aws.String("healthy"),
+				},
+			}, nil)
+		})
+
+		JustBeforeEach(func() {
+			nodegroups, err = c.ListNodegroups(clusterName)
+		})
+
+		It("should not error", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should return the nodegroups", func() {
+			Expect(nodegroups).To(ConsistOf(awseks.DescribeNodegroupOutput{
+				Nodegroup: &awseks.Nodegroup{
+					InstanceTypes: aws.StringSlice([]string{"t2.small"}),
+					Status:        aws.String("healthy"),
+				},
+			}, awseks.DescribeNodegroupOutput{
+				Nodegroup: &awseks.Nodegroup{
+					InstanceTypes: aws.StringSlice([]string{"t2.small"}),
+					Status:        aws.String("healthy"),
+				},
+			}))
+		})
+
+		It("should have called AWS EKS", func() {
+			Expect(p.MockEKS().AssertNumberOfCalls(GinkgoT(), "ListNodegroups", 1)).To(BeTrue())
+			Expect(p.MockEKS().AssertNumberOfCalls(GinkgoT(), "DescribeNodegroup", 2)).To(BeTrue())
+		})
+	})
+
 	Describe("ListAll", func() {
 		var (
 			err       error
